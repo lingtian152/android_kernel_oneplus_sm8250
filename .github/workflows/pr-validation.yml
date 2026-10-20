@@ -1,0 +1,60 @@
+name: Pull request validation
+
+on:
+  pull_request:
+    branches:
+      - lingtian152-patch-1
+  push:
+    branches:
+      - chatgpt/kb2005-pr-ci
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate kernel config and workflow inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate workflow YAML
+        run: |
+          python3 -m pip install --user pyyaml
+          python3 - <<'PY'
+          import pathlib, yaml
+          for path in pathlib.Path(".github/workflows").glob("*.yml"):
+              with path.open() as f:
+                  yaml.safe_load(f)
+              print(f"YAML OK: {path}")
+          for path in pathlib.Path(".github/workflows").glob("*.yaml"):
+              with path.open() as f:
+                  yaml.safe_load(f)
+              print(f"YAML OK: {path}")
+          PY
+
+      - name: Validate BBR and SukiSU config fragment
+        run: |
+          set -euo pipefail
+          grep -qx 'CONFIG_TCP_CONG_ADVANCED=y' kernel/bbr.fragment
+          grep -qx 'CONFIG_TCP_CONG_BBR=y' kernel/bbr.fragment
+          grep -qx 'CONFIG_NET_SCH_FQ=y' kernel/bbr.fragment
+          grep -qx 'CONFIG_KPROBES=y' kernel/bbr.fragment
+          grep -qx 'CONFIG_KRETPROBES=y' kernel/bbr.fragment
+          grep -qx 'CONFIG_EXT4_FS=y' kernel/bbr.fragment
+
+      - name: Discover device defconfig candidates
+        run: |
+          set -euo pipefail
+          test -d arch/arm64/configs
+          echo "Matching kebab / SM8250 defconfigs:"
+          find arch/arm64/configs -type f \( -iname '*kebab*' -o -iname '*sm8250*' \) -print || true
+
+      - name: Check SukiSU setup script is reachable
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh -o /tmp/sukisu-setup.sh
+          test -s /tmp/sukisu-setup.sh
+          echo "SukiSU Ultra setup script is reachable."
