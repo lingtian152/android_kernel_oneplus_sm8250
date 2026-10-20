@@ -6,7 +6,7 @@ on:
       - lingtian152-patch-1
   push:
     branches:
-      - chatgpt/kb2005-pr-ci
+      - lingtian152-patch-1
   workflow_dispatch:
 
 permissions:
@@ -25,11 +25,9 @@ jobs:
           python3 -m pip install --user pyyaml
           python3 - <<'PY'
           import pathlib, yaml
-          for path in pathlib.Path(".github/workflows").glob("*.yml"):
-              with path.open() as f:
-                  yaml.safe_load(f)
-              print(f"YAML OK: {path}")
-          for path in pathlib.Path(".github/workflows").glob("*.yaml"):
+          files = list(pathlib.Path(".github/workflows").glob("*.yml"))
+          files += list(pathlib.Path(".github/workflows").glob("*.yaml"))
+          for path in files:
               with path.open() as f:
                   yaml.safe_load(f)
               print(f"YAML OK: {path}")
@@ -38,12 +36,15 @@ jobs:
       - name: Validate BBR and SukiSU config fragment
         run: |
           set -euo pipefail
+          test -s kernel/bbr.fragment
           grep -qx 'CONFIG_TCP_CONG_ADVANCED=y' kernel/bbr.fragment
           grep -qx 'CONFIG_TCP_CONG_BBR=y' kernel/bbr.fragment
+          grep -qx 'CONFIG_NET_SCHED=y' kernel/bbr.fragment
           grep -qx 'CONFIG_NET_SCH_FQ=y' kernel/bbr.fragment
           grep -qx 'CONFIG_KPROBES=y' kernel/bbr.fragment
           grep -qx 'CONFIG_KRETPROBES=y' kernel/bbr.fragment
           grep -qx 'CONFIG_EXT4_FS=y' kernel/bbr.fragment
+          grep -qx 'CONFIG_KSU=y' kernel/bbr.fragment
 
       - name: Discover device defconfig candidates
         run: |
