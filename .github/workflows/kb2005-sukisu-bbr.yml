@@ -1,6 +1,11 @@
 name: OnePlus 8T KB2005 kernel
 
 on:
+  push:
+    branches:
+      - lingtian152-patch-1
+    paths:
+      - .github/workflows/kb2005-sukisu-bbr.yml
   workflow_dispatch:
     inputs:
       kernel_ref:
@@ -32,7 +37,7 @@ jobs:
       - name: Checkout kernel
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.kernel_ref }}
+          ref: ${{ inputs.kernel_ref || github.ref_name }}
           fetch-depth: 1
 
       - name: Install build dependencies
@@ -50,12 +55,12 @@ jobs:
             cfg="arch/arm64/configs/$REQUESTED_DEFCONFIG"
             if [ ! -f "$cfg" ]; then
               echo "::error::Requested defconfig not found: $cfg"
-              find arch/arm64/configs -type f \( -iname '*kebab*' -o -iname '*sm8250*' \) -print || true
+              find arch/arm64/configs -type f \\( -iname '*kebab*' -o -iname '*sm8250*' \\) -print || true
               exit 1
             fi
           else
             echo "Available kebab/SM8250 defconfigs:"
-            find arch/arm64/configs -type f \( -iname '*kebab*' -o -iname '*sm8250*' \) -print || true
+            find arch/arm64/configs -type f \\( -iname '*kebab*' -o -iname '*sm8250*' \\) -print || true
             if [ -f arch/arm64/configs/vendor/kebab_defconfig ]; then
               cfg="arch/arm64/configs/vendor/kebab_defconfig"
             elif [ -f arch/arm64/configs/kebab_defconfig ]; then
@@ -70,7 +75,7 @@ jobs:
 
       - name: Integrate SukiSU Ultra
         env:
-          SUKISU_BRANCH: ${{ inputs.sukisu_branch }}
+          SUKISU_BRANCH: ${{ inputs.sukisu_branch || 'main' }}
         run: |
           set -euo pipefail
           curl -fsSL --retry 3 https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh -o /tmp/sukisu-setup.sh
