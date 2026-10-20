@@ -97,8 +97,63 @@ jobs:
           make ARCH=arm64 O=out "$defconfig"
           scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/kb2005_sukisu_bbr.config
           make ARCH=arm64 O=out olddefconfig
-          grep -E '^(CONFIG_(KPROBES|KRETPROBES|EXT4_FS|TCP_CONG_BBR|NET_SCHED|NET_SCH_FQ))=' out/.config || true
-          grep -q '^CONFIG_TCP_CONG_BBR=y$' out/.config
+          grep -E '^(CONFIG_(KPROBES|KRETPROBES|EXT4_FS|TCP_CONG_BBR|NET_SCHED|NET_SCH_FQ|SECURITY_DMESG_RESTRICT))=' out/.config || true
+          grep -q '^CONFIG_TCP_CONG_BBR=y
+          grep -q '^CONFIG_NET_SCH_FQ=y$' out/.config
+          grep -q '^CONFIG_KSU=y$' out/.config
+
+      - name: Build kernel image and device trees
+        run: |
+          set -euo pipefail
+          make -j"$(nproc)" ARCH=arm64 O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 Image.gz dtbs
+
+      - name: Verify output and config
+        run: |
+          set -euo pipefail
+          test -s out/arch/arm64/boot/Image.gz
+          cp out/.config out/kernel.config
+          file out/arch/arm64/boot/Image.gz
+          sha256sum out/arch/arm64/boot/Image.gz
+
+      - name: Upload artifacts (not a flashable ZIP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: oneplus8t-kb2005-kernel-${{ github.run_number }}
+          path: |
+            out/arch/arm64/boot/Image.gz
+            out/arch/arm64/boot/dts/**/*.dtb
+            out/kernel.config
+          if-no-files-found: error
+          retention-days: 14
+ out/.config
+          grep -q '^CONFIG_SECURITY_DMESG_RESTRICT=y
+          grep -q '^CONFIG_NET_SCH_FQ=y$' out/.config
+          grep -q '^CONFIG_KSU=y$' out/.config
+
+      - name: Build kernel image and device trees
+        run: |
+          set -euo pipefail
+          make -j"$(nproc)" ARCH=arm64 O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 Image.gz dtbs
+
+      - name: Verify output and config
+        run: |
+          set -euo pipefail
+          test -s out/arch/arm64/boot/Image.gz
+          cp out/.config out/kernel.config
+          file out/arch/arm64/boot/Image.gz
+          sha256sum out/arch/arm64/boot/Image.gz
+
+      - name: Upload artifacts (not a flashable ZIP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: oneplus8t-kb2005-kernel-${{ github.run_number }}
+          path: |
+            out/arch/arm64/boot/Image.gz
+            out/arch/arm64/boot/dts/**/*.dtb
+            out/kernel.config
+          if-no-files-found: error
+          retention-days: 14
+ out/.config
           grep -q '^CONFIG_NET_SCH_FQ=y$' out/.config
           grep -q '^CONFIG_KSU=y$' out/.config
 
