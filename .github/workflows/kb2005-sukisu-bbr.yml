@@ -8,6 +8,7 @@ on:
       - lingtian152-patch-1
     paths:
       - .github/workflows/kb2005-sukisu-bbr.yml
+      - arch/arm64/configs/vendor/kb2005_sukisu_bbr.config
   workflow_dispatch:
     inputs:
       kernel_ref:
@@ -94,9 +95,9 @@ jobs:
           set -euo pipefail
           defconfig="${DEFCONFIG_PATH#arch/arm64/configs/}"
           make ARCH=arm64 O=out "$defconfig"
-          scripts/config --file out/.config --enable KPROBES --enable KRETPROBES --enable EXT4_FS --enable TCP_CONG_ADVANCED --enable TCP_CONG_BBR --enable NET_SCHED --enable NET_SCH_FQ
+          scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/kb2005_sukisu_bbr.config
           make ARCH=arm64 O=out olddefconfig
-          grep -E '^(CONFIG_(KPROBES|KRETPROBES|EXT4_FS|TCP_CONG_ADVANCED|TCP_CONG_BBR|NET_SCHED|NET_SCH_FQ))=' out/.config || true
+          grep -E '^(CONFIG_(KPROBES|KRETPROBES|EXT4_FS|TCP_CONG_BBR|NET_SCHED|NET_SCH_FQ))=' out/.config || true
           grep -q '^CONFIG_TCP_CONG_BBR=y$' out/.config
           grep -q '^CONFIG_NET_SCH_FQ=y$' out/.config
           grep -q '^CONFIG_KSU=y$' out/.config
