@@ -1,5 +1,7 @@
 name: OnePlus 8T KB2005 kernel
 
+# Re-triggered to validate the latest defconfig detection fix.
+
 on:
   push:
     branches:
@@ -55,12 +57,12 @@ jobs:
             cfg="arch/arm64/configs/$REQUESTED_DEFCONFIG"
             if [ ! -f "$cfg" ]; then
               echo "::error::Requested defconfig not found: $cfg"
-              find arch/arm64/configs -type f \( -iname '*kebab*' -o -iname '*sm8250*' \) -print || true
+              find arch/arm64/configs -type f \\( -iname '*kebab*' -o -iname '*sm8250*' \\) -print || true
               exit 1
             fi
           else
             echo "Available KONA/KB2005/SM8250 defconfigs:"
-            find arch/arm64/configs -type f \( -iname '*kebab*' -o -iname '*sm8250*' \) -print || true
+            find arch/arm64/configs -type f \\( -iname '*kebab*' -o -iname '*sm8250*' \\) -print || true
             if [ -f arch/arm64/configs/vendor/kona-perf_defconfig ]; then
               cfg="arch/arm64/configs/vendor/kona-perf_defconfig"
             elif [ -f arch/arm64/configs/vendor/kona_defconfig ]; then
