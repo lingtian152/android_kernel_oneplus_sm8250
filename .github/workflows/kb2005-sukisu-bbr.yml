@@ -60,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
           make ARCH=arm64 O=out "${DEFCONFIG}"
-          scripts/config --file out/.config --enable CONFIG_KPROBES --enable CONFIG_KRETPROBES --enable CONFIG_EXT4_FS --enable CONFIG_KSU --enable CONFIG_TCP_CONG_ADVANCED --enable CONFIG_TCP_CONG_BBR --enable CONFIG_NET_SCH_FQ
+          scripts/config --file out/.config --enable CONFIG_KPROBES --enable CONFIG_KRETPROBES --enable CONFIG_EXT4_FS --enable CONFIG_KSU --enable CONFIG_TCP_CONG_ADVANCED --enable CONFIG_TCP_CONG_BBR --enable CONFIG_NET_SCHED --enable CONFIG_NET_SCH_FQ
           make ARCH=arm64 O=out olddefconfig
           grep -E '^(CONFIG_(KPROBES|KRETPROBES|EXT4_FS|KSU|TCP_CONG_ADVANCED|TCP_CONG_BBR|NET_SCH_FQ))=' out/.config || true
           grep -q '^CONFIG_TCP_CONG_BBR=y$' out/.config
