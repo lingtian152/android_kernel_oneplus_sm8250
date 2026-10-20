@@ -1,0 +1,10 @@
+# BBR congestion control and FQ queue discipline
+CONFIG_TCP_CONG_ADVANCED=y
+CONFIG_TCP_CONG_BBR=y
+CONFIG_NET_SCH_FQ=y
+
+# Required by SukiSU Ultra main integration
+CONFIG_KPROBES=y
+CONFIG_KRETPROBES=y
+CONFIG_EXT4_FS=y
+CONFIG_KSU=y
