@@ -1,6 +1,8 @@
-# BBR congestion control and FQ queue discipline
+# KB2005 BBR/FQ + SukiSU Ultra config fragment
+# Apply only after verifying these options exist in the target kernel tree.
 CONFIG_TCP_CONG_ADVANCED=y
 CONFIG_TCP_CONG_BBR=y
+CONFIG_NET_SCHED=y
 CONFIG_NET_SCH_FQ=y
 
 # Required by SukiSU Ultra main integration
