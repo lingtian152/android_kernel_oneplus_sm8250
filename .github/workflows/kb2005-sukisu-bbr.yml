@@ -1,0 +1,115 @@
+name: OnePlus 8T KB2005 kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_ref:
+        description: Kernel branch or commit to build
+        required: true
+        default: lingtian152-patch-1
+        type: string
+      defconfig:
+        description: Defconfig path relative to arch/arm64/configs (leave blank to auto-detect)
+        required: false
+        default: ""
+        type: string
+      sukisu_branch:
+        description: SukiSU Ultra integration branch
+        required: true
+        default: main
+        type: choice
+        options:
+          - main
+          - builtin
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.kernel_ref }}
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential flex git libelf-dev libssl-dev lz4 python3 python-is-python3 rsync cpio dwarves clang lld llvm gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu device-tree-compiler
+
+      - name: Select device defconfig
+        id: config
+        env:
+          REQUESTED_DEFCONFIG: ${{ inputs.defconfig }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REQUESTED_DEFCONFIG" ]; then
+            cfg="arch/arm64/configs/$REQUESTED_DEFCONFIG"
+            if [ ! -f "$cfg" ]; then
+              echo "::error::Requested defconfig not found: $cfg"
+              find arch/arm64/configs -type f \( -iname '*kebab*' -o -iname '*sm8250*' \) -print || true
+              exit 1
+            fi
+          else
+            echo "Available kebab/SM8250 defconfigs:"
+            find arch/arm64/configs -type f \( -iname '*kebab*' -o -iname '*sm8250*' \) -print || true
+            if [ -f arch/arm64/configs/vendor/kebab_defconfig ]; then
+              cfg="arch/arm64/configs/vendor/kebab_defconfig"
+            elif [ -f arch/arm64/configs/kebab_defconfig ]; then
+              cfg="arch/arm64/configs/kebab_defconfig"
+            else
+              echo "::error::Could not safely infer device defconfig; rerun with the exact path printed above."
+              exit 1
+            fi
+          fi
+          echo "path=$cfg" >> "$GITHUB_OUTPUT"
+          echo "Using $cfg"
+
+      - name: Integrate SukiSU Ultra
+        env:
+          SUKISU_BRANCH: ${{ inputs.sukisu_branch }}
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh -o /tmp/sukisu-setup.sh
+          bash /tmp/sukisu-setup.sh "$SUKISU_BRANCH"
+
+      - name: Configure kernel and BBR
+        env:
+          DEFCONFIG_PATH: ${{ steps.config.outputs.path }}
+        run: |
+          set -euo pipefail
+          defconfig="${DEFCONFIG_PATH#arch/arm64/configs/}"
+          make ARCH=arm64 O=out "$defconfig"
+          scripts/config --file out/.config --enable KPROBES --enable KRETPROBES --enable EXT4_FS --enable TCP_CONG_ADVANCED --enable TCP_CONG_BBR --enable NET_SCHED --enable NET_SCH_FQ
+          make ARCH=arm64 O=out olddefconfig
+          grep -E '^(CONFIG_(KPROBES|KRETPROBES|EXT4_FS|TCP_CONG_ADVANCED|TCP_CONG_BBR|NET_SCHED|NET_SCH_FQ))=' out/.config || true
+          grep -q '^CONFIG_TCP_CONG_BBR=y$' out/.config
+          grep -q '^CONFIG_NET_SCH_FQ=y$' out/.config
+          grep -q '^CONFIG_KSU=y$' out/.config
+
+      - name: Build kernel image and device trees
+        run: |
+          set -euo pipefail
+          make -j"$(nproc)" ARCH=arm64 O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- LLVM=1 Image.gz dtbs
+
+      - name: Verify output and config
+        run: |
+          set -euo pipefail
+          test -s out/arch/arm64/boot/Image.gz
+          cp out/.config out/kernel.config
+          file out/arch/arm64/boot/Image.gz
+          sha256sum out/arch/arm64/boot/Image.gz
+
+      - name: Upload artifacts (not a flashable ZIP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: oneplus8t-kb2005-kernel-${{ github.run_number }}
+          path: |
+            out/arch/arm64/boot/Image.gz
+            out/arch/arm64/boot/dts/**/*.dtb
+            out/kernel.config
+          if-no-files-found: error
+          retention-days: 14
