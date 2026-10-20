@@ -6,7 +6,7 @@ on:
       kernel_ref:
         description: Kernel branch or commit
         required: true
-        default: lингtian152-patch-1
+        default: lingtian152-patch-1
         type: string
       defconfig:
         description: Defconfig path/name relative to arch/arm64/configs
@@ -59,7 +59,7 @@ jobs:
           DEFCONFIG: ${{ inputs.defconfig }}
         run: |
           set -euo pipefail
-          make ARCH=arm64 O=out "${DEFCONFIG##*/}"
+          make ARCH=arm64 O=out "${DEFCONFIG}"
           scripts/config --file out/.config --enable CONFIG_KPROBES --enable CONFIG_KRETPROBES --enable CONFIG_EXT4_FS --enable CONFIG_KSU --enable CONFIG_TCP_CONG_ADVANCED --enable CONFIG_TCP_CONG_BBR --enable CONFIG_NET_SCH_FQ
           make ARCH=arm64 O=out olddefconfig
           grep -E '^(CONFIG_(KPROBES|KRETPROBES|EXT4_FS|KSU|TCP_CONG_ADVANCED|TCP_CONG_BBR|NET_SCH_FQ))=' out/.config || true
