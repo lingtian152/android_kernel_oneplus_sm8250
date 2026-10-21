@@ -6,7 +6,11 @@ name: Build Kernel (KernelSU-Next)
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    branches:
+      - lingtian152-patch-1
+  push:
+    branches:
+      - lingtian152-patch-1
   workflow_dispatch:
     inputs:
       defconfig:
