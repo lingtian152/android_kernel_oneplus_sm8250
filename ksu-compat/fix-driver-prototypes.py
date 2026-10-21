@@ -34,6 +34,11 @@ def main() -> None:
         "bool tp_boot_mode_normal(void)",
     )
     ensure_void_prototype(
+        vendor / "oplus/kernel/system/uboot_log/uboot_log.c",
+        r"^int\s+ubootback_thread_fn\s*\(\s*\)(?=\s*\{)",
+        "int ubootback_thread_fn(void)",
+    )
+    ensure_void_prototype(
         techpack / "display/oplus/oplus_display_panel.c",
         r"^void\s+__exit\s+oplus_display_panel_exit\s*\(\s*\)(?=\s*\{)",
         "void __exit oplus_display_panel_exit(void)",
