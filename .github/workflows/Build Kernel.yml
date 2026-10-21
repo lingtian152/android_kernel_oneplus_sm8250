@@ -65,6 +65,8 @@ jobs:
           mkdir -p root/vendor root/kernel/msm-4.19/techpack
           cp -a mods/vendor/. root/vendor/
           cp -a mods/kernel/msm-4.19/techpack/. root/kernel/msm-4.19/techpack/
+          python3 root/kernel/msm-4.19/ksu-compat/fix-driver-prototypes.py \
+            root/vendor root/kernel/msm-4.19/techpack
           cd root/kernel/msm-4.19
           bad=0
           while IFS= read -r f; do
