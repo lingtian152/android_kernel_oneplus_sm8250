@@ -83,7 +83,7 @@ jobs:
           curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/legacy/kernel/setup.sh" | bash -s "$KSU_REF"
           test -L drivers/kernelsu || { echo "::error::drivers/kernelsu missing"; exit 1; }
           git -C KernelSU-Next log -1 --oneline
-          for p in "$GITHUB_WORKSPACE"/ksu-compat/*.patch; do
+          for p in "$GITHUB_WORKSPACE"/root/kernel/msm-4.19/ksu-compat/*.patch; do
             [ -f "$p" ] || { echo "::error::compat patch not found: $p"; exit 1; }
             echo "apply $p"
             git -C KernelSU-Next apply --verbose "$p"
