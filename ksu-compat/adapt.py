@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adapt KernelSU-Next's strscpy_pad guard to the checked-out kernel version."""
+"""Adapt KernelSU-Next compatibility guards to the checked-out kernel version."""
 
 import pathlib
 import re
@@ -22,12 +22,37 @@ def has_strscpy_pad(version: tuple[int, int, int]) -> bool:
     return version >= (4, 14, 222) and not (4, 19, 0) <= version < (4, 19, 172)
 
 
+def adapt_kernel_umount(kernel_su: pathlib.Path,
+                        version: tuple[int, int, int]) -> None:
+    if version >= (5, 9, 0):
+        return
+
+    source_path = kernel_su / "kernel/feature/kernel_umount.c"
+    source = source_path.read_text()
+    pattern = re.compile(
+        r"#if LINUX_VERSION_CODE >= KERNEL_VERSION\(5, 9, 0\) \|\|[ \t]*\\\n"
+        r"[ \t]*defined\(KSU_HAS_PATH_UMOUNT\)"
+    )
+    updated, count = pattern.subn(
+        "#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)", source
+    )
+    if count > 1:
+        raise SystemExit(f"Found multiple path_umount guards in {source_path}")
+    if not count and "KSU_HAS_PATH_UMOUNT" in source:
+        raise SystemExit(f"Could not adapt path_umount guard in {source_path}")
+    if count:
+        source_path.write_text(updated)
+        print("Adapted KernelSU-Next to use the 4.19 umount compatibility path.")
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("Usage: adapt.py <KernelSU-Next directory>")
 
     version = read_kernel_version(pathlib.Path("Makefile"))
-    header = pathlib.Path(sys.argv[1]) / "kernel/compat/kernel_compat.h"
+    kernel_su = pathlib.Path(sys.argv[1])
+    adapt_kernel_umount(kernel_su, version)
+    header = kernel_su / "kernel/compat/kernel_compat.h"
     source = header.read_text()
 
     if has_strscpy_pad(version):

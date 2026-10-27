@@ -2774,7 +2774,7 @@ int gsi_read_channel_scratch(unsigned long chan_hdl,
 
 	return GSI_STATUS_SUCCESS;
 }
-EXPORT_SYMBOL(gsi_read_channel_scratch);
+/* The GSI implementation and its IPA clients are built into vmlinux. */
 
 int gsi_update_mhi_channel_scratch(unsigned long chan_hdl,
 		struct __packed gsi_mhi_channel_scratch mscr)
