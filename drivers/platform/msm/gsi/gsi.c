@@ -2739,7 +2739,9 @@ int gsi_write_channel_scratch(unsigned long chan_hdl,
 
 	return GSI_STATUS_SUCCESS;
 }
-EXPORT_SYMBOL(gsi_write_channel_scratch);
+/* This function is used by built-in IPA clients; genksyms cannot version its
+ * packed union argument reliably, so keep it out of the exported symbol set.
+ */
 
 int gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch *val)

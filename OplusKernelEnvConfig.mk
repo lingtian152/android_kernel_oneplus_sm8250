@@ -17,8 +17,13 @@
 
 -include $(srctree)/oplus_native_features.mk
 
-# The display Kbuild selects the ADFR provider object with this variable.
+# These feature variables select provider objects in recursive Kbuild files.
+# Keep router boost out of this list; it remains disabled for this build.
 export OPLUS_FEATURE_ADFR_KERNEL
+export OPLUS_FEATURE_UFSPLUS
+export OPLUS_FEATURE_PADL_STATISTICS
+export OPLUS_FEATURE_PROCESS_RECLAIM
+export OPLUS_FEATURE_MEMLEAK_DETECT
 
 ###ifdef OPLUS_ARCH_INJECT
 OPLUS_CONNECTIVITY_NATIVE_FEATURE_SET :=
