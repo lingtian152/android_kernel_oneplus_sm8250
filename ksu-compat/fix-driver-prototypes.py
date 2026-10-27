@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fix old-style empty parameter lists in the fetched OnePlus driver sources."""
+"""Fix incompatible function signatures in the fetched OnePlus driver sources."""
 
 import pathlib
 import re
@@ -36,7 +36,7 @@ def main() -> None:
     ensure_void_prototype(
         vendor / "oplus/kernel/system/uboot_log/uboot_log.c",
         r"^int\s+ubootback_thread_fn\s*\(\s*\)(?=\s*\{)",
-        "int ubootback_thread_fn(void)",
+        "int ubootback_thread_fn(void *data)",
     )
     ensure_void_prototype(
         techpack / "display/oplus/oplus_display_panel.c",
