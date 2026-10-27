@@ -51,7 +51,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             bc bison flex libssl-dev libelf-dev libncurses-dev cpio lz4 zip unzip \
-            ccache python3 dwarves device-tree-compiler xz-utils curl git
+            ccache python3 dwarves device-tree-compiler xz-utils curl git \
+            binutils-aarch64-linux-gnu
 
       - name: Checkout kernel into <root>/kernel/msm-4.19
         uses: actions/checkout@v4
@@ -90,21 +91,27 @@ jobs:
       - name: Generate .config
         working-directory: root/kernel/msm-4.19
         run: |
-          MK="make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
+          MK="make O=out CC=clang LD=aarch64-linux-gnu-ld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
           $MK "$DEFCONFIG"
           scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/kb2005_sukisu_bbr.config
-          scripts/config --file out/.config -e KSU -e KSU_MANUAL_HOOK
+          scripts/config --file out/.config \
+            -e KSU -e KSU_MANUAL_HOOK -e UFSFEATURE -e UFSTW \
+            -e DUMP_TASKS_MEM -e PROCESS_RECLAIM_ENHANCE
           $MK olddefconfig
           grep -E 'CONFIG_(KSU|KSU_MANUAL_HOOK|KPROBES|KRETPROBES|KALLSYMS_ALL|LOCALVERSION)[=A-Z_]*' out/.config
           grep -q '^CONFIG_KSU=y$' out/.config
           grep -q '^CONFIG_KSU_MANUAL_HOOK=y$' out/.config
+          grep -q '^CONFIG_UFSFEATURE=y$' out/.config
+          grep -q '^CONFIG_UFSTW=y$' out/.config
+          grep -q '^CONFIG_DUMP_TASKS_MEM=y$' out/.config
+          grep -q '^CONFIG_PROCESS_RECLAIM_ENHANCE=y$' out/.config
 
       - name: Build kernel
         working-directory: root/kernel/msm-4.19
         run: |
           export CCACHE_DIR="$HOME/.ccache"
           make -j"$(nproc)" O=out \
-            CC="ccache clang" LD=ld.lld AR=llvm-ar NM=llvm-nm \
+            CC="ccache clang" LD=aarch64-linux-gnu-ld AR=llvm-ar NM=llvm-nm \
             OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
             CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             KCFLAGS="-Wno-error" \
