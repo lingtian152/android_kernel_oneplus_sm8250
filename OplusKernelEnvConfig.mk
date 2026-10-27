@@ -17,6 +17,9 @@
 
 -include $(srctree)/oplus_native_features.mk
 
+# The display Kbuild selects the ADFR provider object with this variable.
+export OPLUS_FEATURE_ADFR_KERNEL
+
 ###ifdef OPLUS_ARCH_INJECT
 OPLUS_CONNECTIVITY_NATIVE_FEATURE_SET :=
 
@@ -131,7 +134,7 @@ OPLUS_FEATURE_SENSOR
 
 ifeq ($(OPLUS_FEATURE_ADFR_KERNEL), yes)
     $(warning add OPLUS_FEATURE_ADFR in kernel)
-    ALLOWED_MCROS += OPLUS_FEATURE_ADFR
+    ALLOWED_MCROS += OPLUS_FEATURE_ADFR OPLUS_FEATURE_ADFR_KERNEL
 endif
 
 ifeq ($(OPLUS_FEATURE_GAMMA_SWITCH_KERNEL), yes)
