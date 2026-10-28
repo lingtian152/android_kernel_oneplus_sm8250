@@ -155,6 +155,6 @@ jobs:
         with:
           name: bakasu-sm8250-kernel
           path: |
-            KSUNext-sm8250-*.zip
+            BakaSU-sm8250-*.zip
             build.log
             root/kernel/msm-4.19/out/.config
