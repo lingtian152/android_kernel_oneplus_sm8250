@@ -110,7 +110,7 @@ jobs:
       - name: Generate .config
         working-directory: root/kernel/msm-4.19
         run: |
-          MK="make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
+          MK="make O=out CC=clang LD=aarch64-linux-gnu-ld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
           $MK "$DEFCONFIG"
           scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/kb2005_bakasu_bbr.config
           scripts/config --file out/.config \
@@ -133,7 +133,7 @@ jobs:
           export CCACHE_COMPILERCHECK=content
           ccache --max-size=5G
           make -j"$(nproc)" O=out \
-            CC="ccache clang" LD=ld.lld AR=llvm-ar NM=llvm-nm \
+            CC="ccache clang" LD=aarch64-linux-gnu-ld AR=llvm-ar NM=llvm-nm \
             OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
             CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             KCFLAGS="-Wno-error" \
