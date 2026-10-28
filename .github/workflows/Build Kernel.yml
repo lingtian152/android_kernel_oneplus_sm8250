@@ -1,4 +1,4 @@
-name: Build Kernel (KernelSU-Next)
+name: Build Kernel (BakaSU)
 
 # This workflow belongs in lingtian152/android_kernel_oneplus_sm8250.
 # The kernel tree has symlinks into the matching OnePlus vendor repository,
@@ -18,9 +18,9 @@ on:
         default: "vendor/kona-perf_defconfig"
         required: true
         type: string
-      ksu_ref:
-        description: "KernelSU-Next legacy commit/ref (default: 0b17f242)"
-        default: "0b17f242"
+      bakasu_ref:
+        description: "BakaSU commit/tag/branch (default: main)"
+        default: "main"
         required: true
         type: string
 
@@ -30,7 +30,7 @@ permissions:
 env:
   ARCH: arm64
   DEFCONFIG: ${{ inputs.defconfig || 'vendor/kona-perf_defconfig' }}
-  KSU_REF: ${{ inputs.ksu_ref || '0b17f242' }}
+  BAKASU_REF: ${{ inputs.bakasu_ref || 'main' }}
   MODS_REPO: https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8250
   MODS_BRANCH: oneplus/sm8250_u_14.0.0_op8t
   CLANG_REPO: https://github.com/kdrag0n/proton-clang
@@ -99,20 +99,20 @@ jobs:
           fi
           echo "$HOME/clang/bin" >> "$GITHUB_PATH"
 
-      - name: Integrate KernelSU-Next
+      - name: Integrate BakaSU
         working-directory: root/kernel/msm-4.19
         run: |
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/legacy/kernel/setup.sh" | bash -s "$KSU_REF"
+          curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh" | bash -s "$BAKASU_REF"
           test -L drivers/kernelsu || { echo "::error::drivers/kernelsu missing"; exit 1; }
-          git -C KernelSU-Next log -1 --oneline
-          python3 "$GITHUB_WORKSPACE/root/kernel/msm-4.19/ksu-compat/adapt.py" KernelSU-Next
+          git -C KernelSU log -1 --oneline
+          grep -q 'config KSU_MANUAL_HOOK' KernelSU/kernel/Kconfig || { echo "::error::BakaSU Manual Hook option missing"; exit 1; }
 
       - name: Generate .config
         working-directory: root/kernel/msm-4.19
         run: |
           MK="make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
           $MK "$DEFCONFIG"
-          scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/kb2005_sukisu_bbr.config
+          scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/kb2005_bakasu_bbr.config
           scripts/config --file out/.config \
             -e KSU -e KSU_MANUAL_HOOK -e UFSFEATURE -e UFSTW \
             -e DUMP_TASKS_MEM -e PROCESS_RECLAIM_ENHANCE
@@ -145,15 +145,15 @@ jobs:
           git clone --depth=1 "$AK3_REPO" ak3
           cp root/kernel/msm-4.19/out/arch/arm64/boot/Image ak3/Image
           rm -rf ak3/.git ak3/.github
-          sed -i 's/^kernel.string=.*/kernel.string=KernelSU-Next kernel for OnePlus sm8250/' ak3/anykernel.sh || true
+          sed -i 's/^kernel.string=.*/kernel.string=BakaSU kernel for OnePlus sm8250/' ak3/anykernel.sh || true
           sed -i 's/^device.name1=.*/device.name1=OnePlus8T/;s/^device.name2=.*/device.name2=kebab/' ak3/anykernel.sh || true
-          (cd ak3 && zip -r9 "../KSUNext-sm8250-$(date +%Y%m%d-%H%M).zip" . -x '*.git*')
+          (cd ak3 && zip -r9 "../BakaSU-sm8250-$(date +%Y%m%d-%H%M).zip" . -x '*.git*')
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ksunext-sm8250-kernel
+          name: bakasu-sm8250-kernel
           path: |
             KSUNext-sm8250-*.zip
             build.log
