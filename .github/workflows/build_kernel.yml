@@ -1,0 +1,297 @@
+name: Build Kona Kernel with BakaSU
+
+on:
+  push:
+    branches: [ main, master, dev, bakasu ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      defconfig:
+        description: 'Defconfig 名称（不含 _defconfig）'
+        required: false
+        default: 'kona_bakasu'
+      clang_version:
+        description: 'Clang 版本（17.0.6 / 18.1.3 等）'
+        required: false
+        default: '17.0.6'
+      build_target:
+        description: '构建目标'
+        required: false
+        default: 'Image.gz-dtb'
+      skip_kconfig_scan:
+        description: '跳过缺失 Kconfig 扫描'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  ARCH: arm64
+  DEFCONFIG_NAME: ${{ github.event.inputs.defconfig || 'kona_bakasu' }}
+  CLANG_VERSION: ${{ github.event.inputs.clang_version || '17.0.6' }}
+  BUILD_TARGET: ${{ github.event.inputs.build_target || 'Image.gz-dtb' }}
+  CLANG_INSTALL_DIR: /opt/clang
+  KBUILD_BUILD_USER: github-actions
+  KBUILD_BUILD_HOST: bakasu-builder
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 300
+
+    steps:
+      # ─────────────────────────────────────────────────────
+      # 1. 检出源码
+      # ─────────────────────────────────────────────────────
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      # ─────────────────────────────────────────────────────
+      # 2. ccache 缓存（二次构建加速）
+      # ─────────────────────────────────────────────────────
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: kona-4.19-${{ env.DEFCONFIG_NAME }}-${{ github.sha }}
+          restore-keys: |
+            kona-4.19-${{ env.DEFCONFIG_NAME }}-
+            kona-4.19-
+          max-size: 3G
+
+      # ─────────────────────────────────────────────────────
+      # 3. 安装依赖
+      # ─────────────────────────────────────────────────────
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ccache curl flex \
+            g++-multilib gcc-multilib git gnupg gperf \
+            lib32ncurses5-dev lib32readline-dev lib32z1-dev \
+            libelf-dev liblz4-tool libncurses5-dev libncursesw5-dev \
+            libsdl1.2-dev libssl-dev libxml2 libxml2-utils \
+            lz4 lzop pngcrush rsync schedtool squashfs-tools \
+            xsltproc zip zlib1g-dev \
+            python3 python-is-python3 \
+            device-tree-compiler cpio kmod zstd \
+            binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+
+      # ─────────────────────────────────────────────────────
+      # 4. 安装 Clang / LLVM
+      # ─────────────────────────────────────────────────────
+      - name: Install Clang ${{ env.CLANG_VERSION }}
+        run: |
+          sudo mkdir -p ${CLANG_INSTALL_DIR}
+          TARBALL="clang+llvm-${CLANG_VERSION}-x86_64-linux-gnu-ubuntu-22.04.tar.xz"
+          wget -q "https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VERSION}/${TARBALL}"
+          sudo tar -xf "${TARBALL}" -C ${CLANG_INSTALL_DIR} --strip-components=1
+          rm -f "${TARBALL}"
+          echo "${CLANG_INSTALL_DIR}/bin" >> $GITHUB_PATH
+          ${CLANG_INSTALL_DIR}/bin/clang --version | head -1
+          ${CLANG_INSTALL_DIR}/bin/ld.lld --version | head -1
+
+      # ─────────────────────────────────────────────────────
+      # 5. 检查 / 执行 BakaSU 集成
+      # ─────────────────────────────────────────────────────
+      - name: Verify or setup BakaSU
+        run: |
+          if [ -d "KernelSU/kernel" ] || [ -L "drivers/kernelsu" ] || [ -d "drivers/kernelsu" ]; then
+            echo "[+] BakaSU 已存在，跳过 setup.sh"
+          else
+            echo "[+] BakaSU 不存在，执行 setup.sh"
+            curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh" | bash
+          fi
+          echo "=== 验证 ==="
+          ls -la drivers/kernelsu 2>/dev/null || echo "WARNING: drivers/kernelsu 缺失"
+          grep -n "kernelsu" drivers/Makefile 2>/dev/null || echo "WARNING: Makefile 未修改"
+          grep -n "kernelsu" drivers/Kconfig 2>/dev/null || echo "WARNING: Kconfig 未修改"
+
+      # ─────────────────────────────────────────────────────
+      # 6. 修复 gcc-wrapper.py（Python 2 → 3）
+      # ─────────────────────────────────────────────────────
+      - name: Fix gcc-wrapper.py for Python 3
+        run: |
+          if [ ! -f scripts/gcc-wrapper.py ]; then
+            echo "[!] scripts/gcc-wrapper.py 不存在，跳过"
+            exit 0
+          fi
+          if head -1 scripts/gcc-wrapper.py | grep -q python2; then
+            echo "[+] 修补 gcc-wrapper.py"
+            sed -i '1s|.*|#!/usr/bin/env python3|' scripts/gcc-wrapper.py
+            sed -i 's|print "error, forbidden warning:", m.group(2)|print("error, forbidden warning:", m.group(2))|' scripts/gcc-wrapper.py
+            sed -i "s|print 'Is your PATH set correctly?'|print('Is your PATH set correctly?')|" scripts/gcc-wrapper.py
+            sed -i "s|print args\[0\] + ':',e.strerror|print(args[0] + ':', e.strerror)|" scripts/gcc-wrapper.py
+            sed -i "s|print ' '.join(args), str(e)|print(' '.join(args), str(e))|" scripts/gcc-wrapper.py
+            sed -i "s|print line,|print(line, end='')|" scripts/gcc-wrapper.py
+          fi
+          python3 -m py_compile scripts/gcc-wrapper.py && echo "py_compile OK"
+
+      # ─────────────────────────────────────────────────────
+      # 7. 扫描并注释缺失的 Kconfig 源
+      # ─────────────────────────────────────────────────────
+      - name: Comment missing Kconfig sources
+        if: ${{ !inputs.skip_kconfig_scan }}
+        run: |
+          set -e
+          grep -n '^[[:space:]]*source "' init/Kconfig | while IFS=: read -r lineno line; do
+            path=$(echo "$line" | sed 's/.*source "\([^"]*\)".*/\1/')
+            echo "$path" | grep -q '\$' && continue
+            if [ ! -f "$path" ]; then
+              echo "MISSING: $path (line $lineno) -> 注释"
+              sed -i "${lineno}s/^/# /" init/Kconfig
+            fi
+          done
+          echo "=== 处理后的 init/Kconfig 差异 ==="
+          git diff --stat init/Kconfig || true
+
+      # ─────────────────────────────────────────────────────
+      # 8. 确认 defconfig 存在
+      # ─────────────────────────────────────────────────────
+      - name: Verify defconfig
+        run: |
+          for df in \
+            "arch/${ARCH}/configs/vendor/${DEFCONFIG_NAME}_defconfig" \
+            "arch/${ARCH}/configs/${DEFCONFIG_NAME}_defconfig"; do
+            if [ -f "$df" ]; then
+              echo "[+] 使用: $df"
+              echo "DEFCONFIG_PATH=$df" >> $GITHUB_ENV
+              echo "DEFCONFIG_TARGET=${df#arch/${ARCH}/configs/}" >> $GITHUB_ENV
+              exit 0
+            fi
+          done
+          echo "::error::defconfig 未找到: ${DEFCONFIG_NAME}"
+          echo "=== 现有 defconfig ==="
+          find arch/${ARCH}/configs -name "*_defconfig" | sort
+          exit 1
+
+      # ─────────────────────────────────────────────────────
+      # 9. 配置内核
+      # ─────────────────────────────────────────────────────
+      - name: Configure kernel
+        run: |
+          rm -rf out && mkdir -p out
+
+          make O=out ARCH=${ARCH} \
+            LLVM=1 LLVM_IAS=1 \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            "${DEFCONFIG_TARGET}"
+
+          echo "=== 强制 BakaSU + 关键配置 ==="
+          ./scripts/config --file out/.config \
+            -e KSU \
+            -e KSU_MANUAL_HOOK \
+            -e KSU_MANUAL_HOOK_AUTO_INPUT_HOOK \
+            -e KSU_MANUAL_HOOK_AUTO_SETUID_HOOK \
+            -e KSU_MANUAL_HOOK_AUTO_INITRC_HOOK \
+            -e KALLSYMS \
+            -e KALLSYMS_ALL \
+            -d STATIC_USERMODEHELPER \
+            -d MODULE_SIG_FORCE \
+            -d DEBUG_INFO \
+            -d DEBUG_KMEMLEAK \
+            -d DEBUG_KMEMLEAK_DEFAULT_OFF \
+            -d PAGE_OWNER \
+            -d SLUB_DEBUG_ON \
+            -d PAGE_POISONING \
+            -d PROVE_LOCKING \
+            -d LOCK_STAT \
+            -d DEBUG_ATOMIC_SLEEP
+
+          make O=out ARCH=${ARCH} \
+            LLVM=1 LLVM_IAS=1 \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            olddefconfig
+
+          echo "=== 关键配置验证 ==="
+          for opt in KSU KSU_MANUAL_HOOK KALLSYMS KALLSYMS_ALL STATIC_USERMODEHELPER MODULE_SIG_FORCE; do
+            grep "CONFIG_${opt}=" out/.config || echo "CONFIG_${opt} 未设置"
+          done
+
+          if ! grep -q "^CONFIG_KSU=y" out/.config; then
+            echo "::error::CONFIG_KSU 未生效"
+            exit 1
+          fi
+          if ! grep -q "^CONFIG_KSU_MANUAL_HOOK=y" out/.config; then
+            echo "::error::CONFIG_KSU_MANUAL_HOOK 未生效"
+            exit 1
+          fi
+
+      # ─────────────────────────────────────────────────────
+      # 10. 编译
+      # ─────────────────────────────────────────────────────
+      - name: Build kernel (${{ env.BUILD_TARGET }})
+        run: |
+          set -o pipefail
+          make ARCH=${ARCH} O=out \
+            LLVM=1 LLVM_IAS=1 \
+            CC="ccache clang" \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            -j$(nproc) \
+            ${BUILD_TARGET} \
+            2>&1 | tee /tmp/build.log
+
+      # ─────────────────────────────────────────────────────
+      # 11. 收集产物并验证符号
+      # ─────────────────────────────────────────────────────
+      - name: Collect artifacts
+        if: always()
+        run: |
+          mkdir -p artifacts
+          for f in \
+            out/arch/arm64/boot/Image.gz-dtb \
+            out/arch/arm64/boot/Image.gz \
+            out/arch/arm64/boot/Image \
+            out/arch/arm64/boot/dtb \
+            out/arch/arm64/boot/dtb.img; do
+            [ -f "$f" ] && cp -v "$f" artifacts/
+          done
+
+          make ARCH=${ARCH} O=out -s kernelrelease > artifacts/kernel_release.txt 2>/dev/null || true
+
+          # 验证 BakaSU 符号真的编进内核
+          IMG=$(ls artifacts/Image* 2>/dev/null | head -1)
+          if [ -n "$IMG" ]; then
+            echo "=== 检查 BakaSU 符号 ($IMG) ==="
+            if strings "$IMG" 2>/dev/null | grep -q "ksu_handle_execveat"; then
+              echo "[+] 找到 ksu_handle_execveat 符号"
+            else
+              echo "[!] WARNING: ksu_handle_execveat 未找到，hook 可能未编入"
+            fi
+            if strings "$IMG" 2>/dev/null | grep -q "ksu_handle_sys_reboot"; then
+              echo "[+] 找到 ksu_handle_sys_reboot 符号"
+            fi
+          fi
+
+          ls -la artifacts/
+
+      # ─────────────────────────────────────────────────────
+      # 12. 上传产物
+      # ─────────────────────────────────────────────────────
+      - name: Upload kernel artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-bakasu-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
+
+      # ─────────────────────────────────────────────────────
+      # 13. 失败时保留日志和配置
+      # ─────────────────────────────────────────────────────
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-failed-${{ github.sha }}
+          path: |
+            /tmp/build.log
+            out/.config
+            init/Kconfig
+          retention-days: 7
