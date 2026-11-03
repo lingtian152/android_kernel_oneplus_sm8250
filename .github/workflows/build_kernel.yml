@@ -69,15 +69,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             bc bison build-essential ccache curl flex \
-            g++-multilib gcc-multilib git gnupg gperf \
+            g++-multilib git gnupg gperf \
             lib32ncurses5-dev lib32readline-dev lib32z1-dev \
             libelf-dev liblz4-tool libncurses5-dev libncursesw5-dev \
             libsdl1.2-dev libssl-dev libxml2 libxml2-utils \
             lz4 lzop pngcrush rsync schedtool squashfs-tools \
             xsltproc zip zlib1g-dev \
             python3 python-is-python3 \
-            device-tree-compiler cpio kmod zstd \
-            binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+            device-tree-compiler cpio kmod zstd
 
       # ─────────────────────────────────────────────────────
       # 4. 安装 Clang / LLVM
