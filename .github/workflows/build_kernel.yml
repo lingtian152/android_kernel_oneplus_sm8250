@@ -95,18 +95,43 @@ jobs:
       # ─────────────────────────────────────────────────────
       # 5. 检查 / 执行 BakaSU 集成
       # ─────────────────────────────────────────────────────
-      - name: Verify or setup BakaSU
+            - name: Setup BakaSU driver
         run: |
-          if [ -d "KernelSU/kernel" ] || [ -L "drivers/kernelsu" ] || [ -d "drivers/kernelsu" ]; then
-            echo "[+] BakaSU 已存在，跳过 setup.sh"
-          else
-            echo "[+] BakaSU 不存在，执行 setup.sh"
-            curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh" | bash
+          set -e
+
+          echo "=== 清理可能残留的断链/空壳 ==="
+          rm -rf drivers/kernelsu KernelSU
+
+          echo "=== 确认在内核源码根目录 ==="
+          if [ ! -f "Makefile" ] || [ ! -f "drivers/Kconfig" ]; then
+            echo "::error::当前目录不是内核根目录"
+            pwd && ls
+            exit 1
           fi
-          echo "=== 验证 ==="
-          ls -la drivers/kernelsu 2>/dev/null || echo "WARNING: drivers/kernelsu 缺失"
-          grep -n "kernelsu" drivers/Makefile 2>/dev/null || echo "WARNING: Makefile 未修改"
-          grep -n "kernelsu" drivers/Kconfig 2>/dev/null || echo "WARNING: Kconfig 未修改"
+
+          echo "=== 运行 BakaSU setup.sh ==="
+          curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh" | bash
+
+          echo "=== 强制验证 ==="
+          if [ ! -f "drivers/kernelsu/Kconfig" ]; then
+            echo "::error::drivers/kernelsu/Kconfig 不存在，setup 失败"
+            ls -la drivers/ | head -20
+            ls -la KernelSU/ 2>/dev/null || echo "KernelSU 目录不存在"
+            exit 1
+          fi
+
+          # setup.sh 没改 Kconfig/Makefile 的话手动补
+          if ! grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
+            echo 'source "drivers/kernelsu/Kconfig"' >> drivers/Kconfig
+          fi
+          if ! grep -q "kernelsu" drivers/Makefile; then
+            echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
+          fi
+
+          echo "=== 验证结果 ==="
+          ls -la drivers/kernelsu
+          ls drivers/kernelsu/Kconfig
+          grep -n "kernelsu" drivers/Kconfig drivers/Makefile
 
       # ─────────────────────────────────────────────────────
       # 6. 修复 gcc-wrapper.py（Python 2 → 3）
