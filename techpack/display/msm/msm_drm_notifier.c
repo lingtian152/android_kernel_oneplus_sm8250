@@ -1,7 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/*
- * Minimal DRM notifier for OPlus display compatibility.
- */
 #include <linux/module.h>
 #include <linux/notifier.h>
 #include <linux/msm_drm_notify.h>

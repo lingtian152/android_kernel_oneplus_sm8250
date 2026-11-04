@@ -1,1 +1,1 @@
-obj-$(CONFIG_OPLUS_DEVICE_IFNO)	+=  device_info.o
+obj-$(CONFIG_OPLUS_DEVICE_INFO)	+=  device_info.o

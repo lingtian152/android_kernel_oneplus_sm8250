@@ -1,5 +1,5 @@
 #ifdef OPLUS_FEATURE_TP_BASIC
-obj-$(CONFIG_OPLUS_DEVICE_IFNO) += device_info/
+obj-$(CONFIG_OPLUS_DEVICE_INFO) += device_info/
 #endif /* OPLUS_FEATURE_TP_BASIC */
 #ifdef OPLUS_FEATURE_ESIM
 obj-y += misc/
