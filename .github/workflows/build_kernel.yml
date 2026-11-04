@@ -228,7 +228,14 @@ jobs:
             -d PAGE_POISONING \
             -d PROVE_LOCKING \
             -d LOCK_STAT \
-            -d DEBUG_ATOMIC_SLEEP
+            -d DEBUG_ATOMIC_SLEEP \
+            -d FAULT_INJECTION \
+            -d FAULT_INJECTION_DEBUG_FS \
+            -d FAIL_PAGE_ALLOC \
+            -d FAIL_MAKE_REQUEST \
+            -d FAIL_IO_TIMEOUT \
+            -d UFS_FAULT_INJECTION \
+            -d FAULT_INJECTION_STACKTRACE_FILTER
 
           make O=out ARCH=${ARCH} \
             LLVM=1 LLVM_IAS=1 \
