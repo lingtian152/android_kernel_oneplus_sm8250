@@ -7,12 +7,9 @@
 #define __SCHGM_FLASH_H__
 
 #include <linux/bitops.h>
+#include <linux/interrupt.h>
 
-#ifdef OPLUS_FEATURE_CHG_BASIC
-#if defined(CONFIG_OPLUS_SM8250_CHARGER)
-#include "../../oplus/v1/charger_ic/oplus_battery_msm8250.h"
-#endif
-#endif
+struct smb_charger;
 
 #ifndef __SCHGM_FLASH_SUB_H__
 #define __SCHGM_FLASH_SUB_H__
@@ -51,13 +48,33 @@ enum torch_mode {
 	TORCH_BOOST_MODE,
 };
 
-int schgm_flash_get_vreg_ok(struct smb_charger *chg, int *val);
-void schgm_flash_torch_priority(struct smb_charger *chg, enum torch_mode mode);
-int schgm_flash_init(struct smb_charger *chg);
-bool is_flash_active(struct smb_charger *chg);
+static inline int schgm_flash_get_vreg_ok(struct smb_charger *chg, int *val)
+{
+	if (val)
+		*val = 1;
+	return 0;
+}
 
-irqreturn_t schgm_flash_default_irq_handler(int irq, void *data);
-irqreturn_t schgm_flash_ilim2_irq_handler(int irq, void *data);
-irqreturn_t schgm_flash_state_change_irq_handler(int irq, void *data);
+static inline void schgm_flash_torch_priority(struct smb_charger *chg,
+					      enum torch_mode mode) { }
+
+static inline int schgm_flash_init(struct smb_charger *chg) { return 0; }
+
+static inline bool is_flash_active(struct smb_charger *chg) { return false; }
+
+static inline irqreturn_t schgm_flash_default_irq_handler(int irq, void *data)
+{
+	return IRQ_HANDLED;
+}
+
+static inline irqreturn_t schgm_flash_ilim2_irq_handler(int irq, void *data)
+{
+	return IRQ_HANDLED;
+}
+
+static inline irqreturn_t schgm_flash_state_change_irq_handler(int irq, void *data)
+{
+	return IRQ_HANDLED;
+}
 #endif /*__SCHGM_FLASH_SUB_H__*/
 #endif /* __SCHGM_FLASH_H__ */
